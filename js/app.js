@@ -114,7 +114,12 @@ const taskManager = new Vue({
             });
         },
         evaluateColumnRestrictions() {
-            this.restrictFirstColumn = this.taskColumns[1].taskCards.length > 5;
+            const isSecondColumnFull = this.taskColumns[1].taskCards.length >= 5;
+            const isFirstColumnBlocked = this.taskColumns[0].taskCards.some(task => {
+                const completedItems = task.list.filter(item => item.done).length;
+                return Math.floor((completedItems / task.list.length) * 100) > 50;
+            });
+            this.restrictFirstColumn = isSecondColumnFull && isFirstColumnBlocked;
         },
     },
     components: { TaskColumn },
