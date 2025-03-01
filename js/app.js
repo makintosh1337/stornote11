@@ -80,11 +80,18 @@ const taskManager = new Vue({
     },
     methods: {
         addTask() {
-            if (this.newTask.title && this.newTask.list.every(item => item.trim() !== '')) {
-                this.taskColumns[0].taskCards.push({ ...this.newTask });
-                this.newTask = { title: '', list: ['', '', ''], completedAt: null };
+            if (this.taskColumns[0].taskCards.length >= 3) {
+                alert("Нельзя добавить больше 3 задач в первый столбец");
+                return;
+            }
+            if (this.newTask.title.trim() && this.newTask.list.every(item => item.trim())) {
+                this.taskColumns[0].taskCards.push({
+                    title: this.newTask.title,
+                    list: this.newTask.list.map(text => ({ text, done: false })),
+                    completedAt: null
+                });
                 this.saveToLocalStorage();
-                this.evaluateColumnRestrictions();
+                this.newTask = { title: '', list: ['', '', ''], completedAt: null };
             }
         },
         addTaskItem() {
