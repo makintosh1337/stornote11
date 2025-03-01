@@ -1,0 +1,23 @@
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    margin: 0;
+    background: linear-gradient(135deg, #6a11cb, #2575fc);
+    color: #333;
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.task-container {
+    width: 1300px;
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+}
+
+#app {
+    margin: 50px auto;
+    display: flex;
+    justify-content: center;
+}
