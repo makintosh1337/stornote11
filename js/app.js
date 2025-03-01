@@ -22,10 +22,11 @@ const TaskCard = {
     `,
     methods: {
         moveTask() {
-            this.relocateTask(this.taskColumn, this.taskIndex);
+            this.relocateTask({ column: this.taskColumn, index: this.taskIndex }, this.taskColumn + 1);
         },
         editTask() {
-            this.modifyTask(this.taskColumn, this.taskIndex);
+            const newData = { title: "Новое название", list: ["Новый пункт"] }; // Пример данных
+            this.modifyTask(this.taskIndex, this.taskColumn, newData);
         },
     },
 };
@@ -83,6 +84,7 @@ const taskManager = new Vue({
                 this.taskColumns[0].taskCards.push({ ...this.newTask });
                 this.newTask = { title: '', list: ['', '', ''], completedAt: null };
                 this.saveToLocalStorage();
+                this.evaluateColumnRestrictions();
             }
         },
         addTaskItem() {
@@ -95,20 +97,24 @@ const taskManager = new Vue({
                 this.newTask.list.splice(index, 1);
             }
         },
-        relocateTask(fromColumn, taskIndex) {
-            if (fromColumn < this.taskColumns.length) {
-                const task = this.taskColumns[fromColumn].taskCards.splice(taskIndex, 1)[0];
-                this.taskColumns[fromColumn + 1].taskCards.push(task);
-                this.saveToLocalStorage();
-            }
+        relocateTask(taskIndex, columnIndex) {
+            if (taskIndex.column === 1 && this.restrictFirstColumn) return;
+            const task = this.taskColumns[taskIndex.column - 1].taskCards.splice(taskIndex.index, 1)[0];
+            this.taskColumns[columnIndex - 1].taskCards.push(task);
+            this.saveToLocalStorage();
+            this.evaluateColumnRestrictions();
         },
-        modifyTask(columnID, taskIndex) {
-            const task = this.taskColumns[columnID].taskCards[taskIndex];
+        modifyTask(index, column, data) {
+            Object.assign(this.taskColumns[column - 1].taskCards[index], data);
+            this.saveToLocalStorage();
         },
         saveToLocalStorage() {
             this.taskColumns.forEach((column, index) => {
                 localStorage.setItem(`column${index + 1}`, JSON.stringify(column.taskCards));
             });
+        },
+        evaluateColumnRestrictions() {
+            this.restrictFirstColumn = this.taskColumns[1].taskCards.length > 5;
         },
     },
     components: { TaskColumn },
