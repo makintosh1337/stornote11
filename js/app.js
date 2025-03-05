@@ -8,6 +8,7 @@ const TaskCard = {
         completionTime: String,
         modifyTask: Function,
         secondColumnTaskCount: Number,
+        restrictFirstColumn: Boolean,
     },
     computed: {
         completionPercentage() {
@@ -21,33 +22,56 @@ const TaskCard = {
     methods: {
         toggleTaskItem(index) {
             if (this.isRestricted || this.restrictFirstColumn) return;
+
+            // Переключаем состояние подпункта
+            this.taskItems[index].done = !this.taskItems[index].done;
+
+            // Пересчитываем процент выполнения
             const finishedTasks = this.taskItems.filter(item => item.done).length;
             const completed = Math.floor((finishedTasks / this.taskItems.length) * 100);
+
+            // Если задача завершена, устанавливаем время завершения
             if (completed === 100 && !this.completionTime) {
                 const finishTimestamp = new Date().toLocaleString();
-                console.log('Task completed! Setting completion time:', finishTimestamp);
                 this.modifyTask(this.taskIndex, this.taskColumn, { completedAt: finishTimestamp });
             }
+
+            // Если задача больше не завершена на 100%, сбрасываем время завершения
+            if (completed < 100 && this.completionTime) {
+                this.modifyTask(this.taskIndex, this.taskColumn, { completedAt: null });
+            }
+
+            // Логика перемещения задачи между столбцами
             if (this.taskColumn === 1 && completed > 50) {
                 this.relocateTask({ column: this.taskColumn, index: this.taskIndex }, 2);
             } else if (this.taskColumn === 2 && completed === 100) {
                 this.relocateTask({ column: this.taskColumn, index: this.taskIndex }, 3);
+            } else if (this.taskColumn === 2 && completed < 50) {
+                // Если процент выполнения упал ниже 50%, перемещаем задачу обратно в первый столбец
+                this.relocateTask({ column: this.taskColumn, index: this.taskIndex }, 1);
             }
+
+            // Обновляем ограничения для столбцов
             this.$root.evaluateColumnRestrictions();
         },
     },
     template: `
-        <div class="task-card">
-            <h3>{{ taskTitle }}</h3>
-            <ul>
-                <li v-for="(item, index) in taskItems" :key="index">
-                  <input type="checkbox" v-model="item.done" @change="toggleTaskItem(index)" :disabled="restrictFirstColumn || item.done"/>
-                  {{ item.text }}
-                </li>
-            </ul>
-            <p v-if="completionPercentage === 100">Completed at: {{ completionTime }}</p>
-        </div>
-    `,
+    <div class="task-card">
+      <h3>{{ taskTitle }}</h3>
+      <ul>
+        <li v-for="(item, index) in taskItems" :key="index">
+          <input 
+            type="checkbox" 
+            v-model="item.done" 
+            @change="toggleTaskItem(index)" 
+            :disabled="restrictFirstColumn"
+          />
+          {{ item.text }}
+        </li>
+      </ul>
+      <p v-if="completionPercentage === 100">Completed at: {{ completionTime }}</p>
+    </div>
+  `,
 };
 
 const TaskColumn = {
@@ -61,23 +85,23 @@ const TaskColumn = {
     },
     components: { TaskCard },
     template: `
-        <div class="task-column">
-            <h2>Столбец {{ columnID }}</h2>
-            <div v-for="(card, index) in taskCards" :key="index">
-                <TaskCard
-                  :taskTitle="card.title"
-                  :taskItems="card.list"
-                  :taskColumn="columnID"
-                  :taskIndex="index"
-                  :completionTime="card.completedAt"
-                  :relocateTask="relocateTask"
-                  :modifyTask="modifyTask"
-                  :secondColumnTaskCount="secondColumnTaskCount"
-                  :restrictFirstColumn="restrictFirstColumn"
-                />
-            </div>
-        </div>
-    `,
+    <div class="task-column">
+      <h2>Столбец {{ columnID }}</h2>
+      <div v-for="(card, index) in taskCards" :key="index">
+        <TaskCard
+          :taskTitle="card.title"
+          :taskItems="card.list"
+          :taskColumn="columnID"
+          :taskIndex="index"
+          :completionTime="card.completedAt"
+          :relocateTask="relocateTask"
+          :modifyTask="modifyTask"
+          :secondColumnTaskCount="secondColumnTaskCount"
+          :restrictFirstColumn="restrictFirstColumn"
+        />
+      </div>
+    </div>
+  `,
 };
 
 const taskManager = new Vue({
@@ -158,29 +182,30 @@ const taskManager = new Vue({
     components: { TaskColumn },
     template: `
     <div id="app">
-        <div class="task-manager">
-            <h2>Создай новую заметку</h2>
-            <form @submit.prevent="addTask">
-                <label for="title">Название:</label>
-                <input v-model="newTask.title" id="title" type="text" required />
-                <label>Пункты (минимум 3, максимум 5):</label>
-                <div v-for="(item, index) in newTask.list" :key="index" class="task-item">
-                    <input v-model="newTask.list[index]" type="text" required />
-                    <button type="button" @click="removeTaskItem(index)" v-if="newTask.list.length > 3">−</button>
-                </div>
-                <button type="button" @click="addTaskItem" :disabled="newTask.list.length >= 5">+</button>
-                <button type="submit" :disabled="restrictFirstColumn">Создать</button>
-            </form>
-        </div>
-        <div class="task-container">
-            <TaskColumn v-for="(column, index) in taskColumns"
-                        :key="index"
-                        :columnID="index + 1"
-                        :taskCards="column.taskCards"
-                        :relocateTask="relocateTask"
-                        :modifyTask="modifyTask"
-                        :secondColumnTaskCount="taskColumns[1].taskCards.length" />
-        </div>
+      <div class="task-manager">
+        <h2>Создай новую заметку</h2>
+        <form @submit.prevent="addTask">
+          <label for="title">Название:</label>
+          <input v-model="newTask.title" id="title" type="text" required />
+          <label>Пункты (минимум 3, максимум 5):</label>
+          <div v-for="(item, index) in newTask.list" :key="index" class="task-item">
+            <input v-model="newTask.list[index]" type="text" required />
+            <button type="button" @click="removeTaskItem(index)" v-if="newTask.list.length > 3">−</button>
+          </div>
+          <button type="button" @click="addTaskItem" :disabled="newTask.list.length >= 5">+</button>
+          <button type="submit" :disabled="restrictFirstColumn">Создать</button>
+        </form>
+      </div>
+      <div class="task-container">
+        <TaskColumn v-for="(column, index) in taskColumns"
+                    :key="index"
+                    :columnID="index + 1"
+                    :taskCards="column.taskCards"
+                    :relocateTask="relocateTask"
+                    :modifyTask="modifyTask"
+                    :secondColumnTaskCount="taskColumns[1].taskCards.length"
+                    :restrictFirstColumn="restrictFirstColumn" />
+      </div>
     </div>
   `,
 });
